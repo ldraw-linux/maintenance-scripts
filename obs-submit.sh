@@ -31,12 +31,13 @@ if ! [[ -d "$ROOT/.git" ]]; then
 fi
 
 #TODO: check we're in the packaging branch?
+#TODO: check master has been merged into the packaging branch
 
 #
 # Check options 
 #
 
-if [[ -z $1 ]] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]] ; then
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]] ; then
 	echo "Usage: $0 [force]" >&2
 	exit 1
 fi
@@ -80,7 +81,7 @@ echo "Using $VERSION as version string."
 #
 D=`mktemp -d`
 SRCDIR="$D/$PKG"
-PATCHES_MASTER=$D/patches_master
+PATCHES_MASTER=$D/patches-master
 mkdir "$SRCDIR" || die "Cannot create a temporary directory $SRCDIR"
 mkdir "$PATCHES_MASTER" || die "Cannot create a temporary directory $PATCHES_MASTER"
 
@@ -98,23 +99,56 @@ git archive $PACKAGING -- patches-distro series-distro suse debian | tar -x -C $
 # Generate packages
 #
 
-function gen_template_suse() {
+# This function expects an annotated tag 'start' containing two lines in the messsage:
+#   Upstream version of the project at that time
+#   URL of upstream
+function suse_shorten_history() {
+	git cat-file -p start | {
+		while true ; do
+			read line
+			if [ -z "$line" ] ; then
+				break
+			fi
+		done
+		read version
+		read URL
+		git log -1 --pretty=format:"-------------------------------------------------------------------%n%ad - %ce%n%n- ${version}%n  ${URL}%n" start ;
+	}
+}
+
+function suse_generate_changes_file() {
+	git log --date-order --pretty=format:'%at;-------------------------------------------------------------------|n|%ad - %ce|n||n|- %s|n|  %h|n|' start..$PACKAGING | sort -nr -t \; -k 1 | sed 's/^[0-9]*;//;s/|n|/\n/g'
+	suse_shorten_history
+}
+
+
+function gen_suse() {
 	SRC=$1
 	OUTPUT=$2
+	DISTNAME=$3
 
-	SPEC=$SRC/$PKG.spec
-	CHANGEFILE=$PKG.changes
+	pushd $SRC
+
 	#generate spec.patch_declare and spec.patch_apply temporary files
 	n = 0;
-	for i in $PATCHDIR/*; do
+	for i in patches/*; do
 		f=`filename $i`
 		n=$((n+1))
-		echo "Patch$n: $f" >> $SRCDIR/spec.patch_declare
-		echo "%patch$n -p1" >> $SRCDIR/spec.patch_apply
+		echo "Patch$n: $f" >> spec.patch_declare
+		echo "%patch$n -p1" >> spec.patch_apply
 	done
 
-	sed -e 's/__VERSION__/$VER/;/__PATCHES_DECLARE__/ {' -e "'r $SRCDIR/spec.patch_declare" -e 'd' -e '};/__PATCHES_APPLY__/ {' -e "r $SRCDIR/spec.patch_declare" -e 'd' -e '}'; suse/$SPEC >$SRCDIR/$SPEC
-	suse_generate_changes_file >$SRCDIR/$CHANGEFILE
+	sed -e 's/__VERSION__/$VER/
+	        /__PATCHES_DECLARE__/ {
+			r spec.patch_declare
+			d
+			};
+		/__PATCHES_APPLY__/ {
+			r spec.patch_declare
+			d
+			}' $SPEC >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.spec
+
+	suse_generate_changes_file >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.changes
 }
 
 pushd $SRCDIR
@@ -122,7 +156,8 @@ mkdir output
 
 for template_full in series-distro/* ; do
 	template=${template_full##*/}
-	gen_$template $template output
+	cp -a $PATCHES_MASTER ${template}/patches
+	gen_$template $template output ""
 	for dist_full in series-distro/${template}/* ; do
 		dist=${dist_full##*/}
 		cp -a ${template} ${dist}
@@ -131,7 +166,7 @@ for template_full in series-distro/* ; do
 			patch < ../patches-distro/$patch
 		done <../series-distro/${dist}
 		popd
-		gen_$template ${dist} output
+		gen_$template ${dist} output ${dist}
 	done
 done
 popd #SRCDIR
@@ -177,25 +212,4 @@ else
 	popd
 	rm -rf $D
 fi
-# This function expects an annotated tag 'start' containing two lines in the messsage:
-#   Upstream version of the project at that time
-#   URL of upstream
-function suse_shorten_history() {
-	git cat-file -p start | {
-		while true ; do
-			read line
-			if [ -z "$line" ] ; then
-				break
-			fi
-		done
-		read version
-		read URL
-		git log -1 --pretty=format:"-------------------------------------------------------------------%n%ad - %ce%n%n- ${version}%n  ${URL}%n" start ;
-	}
-}
-
-function suse_generate_changes_file() {
-	git log --date-order --pretty=format:'%at;-------------------------------------------------------------------|n|%ad - %ce|n||n|- %s|n|  %h|n|' start..HEAD | sort -nr -t \; -k 1 | sed 's/^[0-9]*;//;s/|n|/\n/g'
-	suse_shorten_history
-}
 
