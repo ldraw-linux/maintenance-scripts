@@ -86,7 +86,7 @@ mkdir "$SRCDIR" || die "Cannot create a temporary directory $SRCDIR"
 mkdir "$PATCHES_MASTER" || die "Cannot create a temporary directory $PATCHES_MASTER"
 
 # create upstream tarball
-git archive --prefix=${PKG}-${UPSTREAM_VER}/ $UPSTREAM | gzip > $SRCDIR/${PKG}_${UPSTREAM_VER}.orig.tar.gz
+git archive --prefix=${PKG}-${UPSTREAM_VERSION}/ $UPSTREAM | gzip > $SRCDIR/${PKG}_${UPSTREAM_VERSION}.orig.tar.gz
 
 # create patch series between upstream and master
 git format-patch -o $PATCHES_MASTER $UPSTREAM..$MASTER
@@ -130,9 +130,9 @@ function gen_suse() {
 	pushd $SRC
 
 	#generate spec.patch_declare and spec.patch_apply temporary files
-	n = 0;
+	n=0
 	for i in patches/*; do
-		f=`filename $i`
+		f=${i##*/}
 		n=$((n+1))
 		echo "Patch$n: $f" >> spec.patch_declare
 		echo "%patch$n -p1" >> spec.patch_apply
@@ -146,9 +146,10 @@ function gen_suse() {
 		/__PATCHES_APPLY__/ {
 			r spec.patch_declare
 			d
-			}' $SPEC >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.spec
+			}' $PKG.spec >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.spec
 
 	suse_generate_changes_file >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.changes
+	popd
 }
 
 pushd $SRCDIR
@@ -157,7 +158,7 @@ mkdir output
 for template_full in series-distro/* ; do
 	template=${template_full##*/}
 	cp -a $PATCHES_MASTER ${template}/patches
-	gen_$template $template output ""
+	gen_$template $template ${SRCDIR}/output ""
 	for dist_full in series-distro/${template}/* ; do
 		dist=${dist_full##*/}
 		cp -a ${template} ${dist}
@@ -166,7 +167,7 @@ for template_full in series-distro/* ; do
 			patch < ../patches-distro/$patch
 		done <../series-distro/${dist}
 		popd
-		gen_$template ${dist} output ${dist}
+		gen_$template ${dist} ${SRCDIR}/output ${dist}
 	done
 done
 popd #SRCDIR
