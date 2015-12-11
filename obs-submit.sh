@@ -154,6 +154,7 @@ function gen_suse() {
 			r spec.patch_apply
 			d
 			}' $PKG.spec >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.spec
+	rm spec.patch_declare spec.patch_apply
 
 	{	
 		# needs to be run in the git directory
@@ -179,8 +180,9 @@ for template in $DISTRO_TEMPLATES ; do
 		cp -a ${template} ${dist}
 		pushd ${dist}
 		while read patch; do
-			patch < ../patches-distro/$patch
-		done <../series-distro/${dist}
+			[[ -f ../patches-distro/$patch ]] || continue
+			patch -p1 < ../patches-distro/$patch
+		done <../series-distro/$template/${dist}
 		popd
 		gen_$template ${dist} ${SRCDIR}/output ${dist}
 	done
@@ -191,41 +193,4 @@ popd #SRCDIR
 mkdir $SRCDIR/debian
 
 
-
-if $LOCAL ; then
-	echo "Sources of the package are stored at $SRCDIR" >&2
-	exit 0
-fi
-
-#
-# OSC part
-#
-
-pushd $D
-if ! osc co "$PRJ" "$PKG"; then
-	popd
-	rm -rf $D
-	die "Cannot check the project out from BS."
-fi
-
-PRJD="$D/$PRJ/$PKG"
-
-if ! cd $PRJD; then 
-	popd
-	rm -rf $D
-	die "Cannot get into the package directory."
-fi
-
-rm -rf ./*
-cp $SRCDIR/* .
-
-if $BUILD; then
-	osc build
-	echo "Keeping build source directory: $D"
-else
-	osc addremove
-	osc commit -m "git commit: $TAG($HASH)"
-	popd
-	rm -rf $D
-fi
-
+echo -e "Sources of the package are stored at\n $SRCDIR" >&2
