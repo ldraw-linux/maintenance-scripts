@@ -88,7 +88,7 @@ mkdir "$PATCHES_MASTER" || die "Cannot create a temporary directory $PATCHES_MAS
 mkdir "$SRCDIR/output"
 
 # create upstream tarball
-git archive --prefix=${PKG}-${UPSTREAM_VERSION}/ $UPSTREAM | gzip > $SRCDIR/output/${PKG}_${UPSTREAM_VERSION}.orig.tar.gz
+git archive --prefix=${PKG}-${UPSTREAM_VERSION}/ $UPSTREAM | gzip -n > $SRCDIR/output/${PKG}_${UPSTREAM_VERSION}.orig.tar.gz
 
 # create patch series between upstream and master
 git format-patch -o $PATCHES_MASTER $UPSTREAM..$MASTER
