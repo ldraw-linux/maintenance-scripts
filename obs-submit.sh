@@ -73,7 +73,7 @@ fi
 #TODO: check VERSION format
 VERSION=$TAG
 UPSTREAM_VERSION=${VERSION%.*}
-RELEASE_VERSION=${VERSION##%*.}
+RELEASE_VERSION=${VERSION##*.}
 
 echo "Using $VERSION as version string."	
 
@@ -105,6 +105,7 @@ git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $
 # Generate packages
 #
 
+################### suse #############
 # This function expects an annotated tag 'start' containing two lines in the messsage:
 #   Upstream version of the project at that time
 #   URL of upstream
@@ -169,6 +170,60 @@ function gen_suse() {
 	popd
 }
 
+################### debian #############
+# This function expects an annotated tag 'start' containing two lines in the messsage:
+#   Upstream version of the project at that time
+#   URL of upstream
+function debian_shorten_history() {
+	git cat-file -p start | {
+		while true ; do
+			read line
+			if [ -z "$line" ] ; then
+				break
+			fi
+		done
+		read version
+		read URL
+		git log -1 --pretty=format:"-------------------------------------------------------------------%n%ad - %ce%n%n- ${version}%n  ${URL}%n" start ;
+	}
+}
+
+function debian_generate_changes_file() {
+	git log --date-order --pretty=format:'%at;-------------------------------------------------------------------|n|%ad - %ce|n||n|- %s|n|  %h|n|' start..$PACKAGING | sort -nr -t \; -k 1 | sed 's/^[0-9]*;//;s/|n|/\n/g'
+	suse_shorten_history
+}
+
+function debian_generate_dsc () {
+	echo TODO
+	cat $1
+}
+
+function gen_debian() {
+	SRC=$1
+	OUTPUT=$2
+	DISTNAME=$3
+
+	pushd $SRC
+	mkdir debian
+	mv * debian
+	pushd debian/patches
+	S=`mktemp`
+	ls -1 > $S
+	mv $S series
+	popd
+
+	{	
+		# needs to be run in the git directory
+		pushd $ROOT
+		debian_generate_changes_file 
+		popd
+	} > debian/changelog
+
+	tar -czf $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz debian
+	debian_generate_dsc debian/control > $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc
+
+	popd
+}
 pushd $SRCDIR
 
 
@@ -191,9 +246,5 @@ for template in $DISTRO_TEMPLATES ; do
 	done
 done
 popd #SRCDIR
-
-#generate Debian packaging files
-mkdir $SRCDIR/debian
-
 
 echo -e "Sources of the package are stored at\n $SRCDIR" >&2
