@@ -73,6 +73,7 @@ fi
 #TODO: check VERSION format
 VERSION=$TAG
 UPSTREAM_VERSION=${VERSION%.*}
+RELEASE_VERSION=${VERSION##%*.}
 
 echo "Using $VERSION as version string."	
 
@@ -147,6 +148,7 @@ function gen_suse() {
 
 	sed -e 's/__VERSION__/'$VERSION'/
 	        s/__UPSTREAM_VERSION__/'$UPSTREAM_VERSION'/
+	        s/__RELEASE_VERSION__/'$RELEASE_VERSION'/
 		/__PATCHES_DECLARE__/ {
 			r spec.patch_declare
 			d
