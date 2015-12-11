@@ -146,7 +146,8 @@ function gen_suse() {
 	done
 
 	sed -e 's/__VERSION__/'$VERSION'/
-	        /__PATCHES_DECLARE__/ {
+	        s/__UPSTREAM_VERSION__/'$UPSTREAM_VERSION'/
+		/__PATCHES_DECLARE__/ {
 			r spec.patch_declare
 			d
 			};
