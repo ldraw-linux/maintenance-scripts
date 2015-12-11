@@ -31,6 +31,7 @@ if ! [[ -d "$ROOT/.git" ]]; then
 fi
 
 #TODO: check we're in the packaging branch?
+#TODO: check that upstream/master/packaging branches exist
 #TODO: check master has been merged into the packaging branch
 
 #
@@ -84,15 +85,19 @@ SRCDIR="$D/$PKG"
 PATCHES_MASTER=$D/patches-master
 mkdir "$SRCDIR" || die "Cannot create a temporary directory $SRCDIR"
 mkdir "$PATCHES_MASTER" || die "Cannot create a temporary directory $PATCHES_MASTER"
+mkdir "$SRCDIR/output"
 
 # create upstream tarball
-git archive --prefix=${PKG}-${UPSTREAM_VERSION}/ $UPSTREAM | gzip > $SRCDIR/${PKG}_${UPSTREAM_VERSION}.orig.tar.gz
+git archive --prefix=${PKG}-${UPSTREAM_VERSION}/ $UPSTREAM | gzip > $SRCDIR/output/${PKG}_${UPSTREAM_VERSION}.orig.tar.gz
 
 # create patch series between upstream and master
 git format-patch -o $PATCHES_MASTER $UPSTREAM..$MASTER
 
 # copy distro-specific files 
-git archive $PACKAGING -- patches-distro series-distro suse debian | tar -x -C $SRCDIR
+git archive $PACKAGING -- suse debian | tar -x -C $SRCDIR
+
+# this may fail if the directories don't exist and that's OK
+git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $SRCDIR 
 
 
 #
@@ -132,34 +137,44 @@ function gen_suse() {
 	#generate spec.patch_declare and spec.patch_apply temporary files
 	n=0
 	for i in patches/*; do
+		[[ -e $i ]] || continue
 		f=${i##*/}
 		n=$((n+1))
 		echo "Patch$n: $f" >> spec.patch_declare
 		echo "%patch$n -p1" >> spec.patch_apply
+		[[ -e $OUTPUT/$f ]] || cp $i $OUTPUT
 	done
 
-	sed -e 's/__VERSION__/$VER/
+	sed -e 's/__VERSION__/'$VERSION'/
 	        /__PATCHES_DECLARE__/ {
 			r spec.patch_declare
 			d
 			};
 		/__PATCHES_APPLY__/ {
-			r spec.patch_declare
+			r spec.patch_apply
 			d
 			}' $PKG.spec >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.spec
 
-	suse_generate_changes_file >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.changes
+	{	
+		# needs to be run in the git directory
+		pushd $ROOT
+		suse_generate_changes_file 
+		popd
+	} >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.changes
+
 	popd
 }
 
 pushd $SRCDIR
-mkdir output
 
-for template_full in series-distro/* ; do
-	template=${template_full##*/}
+
+DISTRO_TEMPLATES="suse debian"
+for template in $DISTRO_TEMPLATES ; do
 	cp -a $PATCHES_MASTER ${template}/patches
 	gen_$template $template ${SRCDIR}/output ""
+	[[ -d series-distro/${template} ]] || continue
 	for dist_full in series-distro/${template}/* ; do
+		[[ -e "$dist_full" ]] || continue
 		dist=${dist_full##*/}
 		cp -a ${template} ${dist}
 		pushd ${dist}
