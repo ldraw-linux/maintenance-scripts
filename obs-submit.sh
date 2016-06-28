@@ -5,6 +5,8 @@ UPSTREAM=upstream
 MASTER=master
 PACKAGING=packaging
 
+SCRIPTS=`(cd ${BASH_SOURCE%/*}; pwd )`
+
 #
 # a block of functions
 # look for "main" to skip it
@@ -184,43 +186,51 @@ function debian_shorten_history() {
 		done
 		read version
 		read URL
-		git log -1 --pretty=format:"-------------------------------------------------------------------%n%ad - %ce%n%n- ${version}%n  ${URL}%n" start ;
+		git log -1 --pretty=format:
+"$PKG ($version) unstable; urgency=low%n"\
+" * Initial packaging of version $version ($URL)%n"\
+" -- %cn <%ce>  %ad"\
+		start ;
 	}
 }
 
 function debian_generate_changes_file() {
-	git log --date-order --pretty=format:'%at;-------------------------------------------------------------------|n|%ad - %ce|n||n|- %s|n|  %h|n|' start..$PACKAGING | sort -nr -t \; -k 1 | sed 's/^[0-9]*;//;s/|n|/\n/g'
-	suse_shorten_history
+	git log --date-order --pretty=format:\
+"$PKG ($VERSION) unstable; urgency=low|n|"\
+" * %s (%h)|n|"\
+" -- %cn <%ce>  %ad"\
+	start..$PACKAGING | sort -nr -t \; -k 2 | sed 's/^[0-9]*;//;s/|n|/\n/g'
+	debian_shorten_history
 }
 
 function debian_generate_dsc () {
-	echo TODO
-	cat $1
+	GEN_DSC=$SCRIPTS/gen_dsc.sh
+	[[ -x $GEN_DSC ]] || die "Can't execute $GEN_DSC"
+	pushd $1 > /dev/null
+	$GEN_DSC
+	popd > /dev/null
 }
 
 function gen_debian() {
 	SRC=$1
 	OUTPUT=$2
 	DISTNAME=$3
-
 	pushd $SRC
-	mkdir debian
-	mv * debian
-	pushd debian/patches
+	pushd patches
 	S=`mktemp`
 	ls -1 > $S
 	mv $S series
 	popd
 
 	{	
+		pushd $ROOT > /dev/null
 		# needs to be run in the git directory
-		pushd $ROOT
 		debian_generate_changes_file 
-		popd
-	} > debian/changelog
+		popd > /dev/null
+	} > changelog
 
-	tar -czf $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz debian
-	debian_generate_dsc debian/control > $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc
+	tar -czf $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz --transform='s%^\.%debian%' .
+	debian_generate_dsc . > $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc
 
 	popd
 }

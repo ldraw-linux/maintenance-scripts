@@ -49,46 +49,27 @@ function parse_control_file() {
 		fi
 		eval "${PREFIX}_${fieldvar}=\"${value}\""
 		ALL_FIELDS="${ALL_FIELDS} ${PREFIX}_${fieldvar}"
-	done <./debian/control
+	done < control
 	for f in $ALL_FIELDS ; do
 		eval "echo \"DEBUG: ${f}=\$$f\"" >&2
 	done
 }
 
 function parse_changelog() {
+	#TODO
+	#cat changelog
 	true
 }
 
 declare -a DSC_OUTPUT_FIELDS=(
+"Format"
+"Source"
+"Version"
+"Binary"
 "Maintainer"
 "Architecture"
-"Binary"
-"Build-Conflicts-Arch"
-"Build-Conflicts"
-"Build-Conflicts-Indep"
-"Build-Depends-Arch"
 "Build-Depends"
-"Build-Depends-Indep"
-"Enhances"
 "Files"
-"Package-List"
-"Provides"
-"Size"
-"Status"
-"Testsuite"
-"Uploaders"
-"Vcs-Browser"
-"Vcs-Arch"
-"Vcs-Bzr"
-"Vcs-Cvs"
-"Vcs-Darcs"
-"Vcs-Git"
-"Vcs-Hg"
-"Vcs-Mtn"
-"Vcs-Svn"
-"Vendor"
-"Vendor-Url"
-"Version"
 )
 
 function output_dsc() {
