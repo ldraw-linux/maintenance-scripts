@@ -221,7 +221,6 @@ function gen_debian() {
 	ls -1 > $S
 	mv $S series
 	popd
-
 	{	
 		pushd $ROOT > /dev/null
 		# needs to be run in the git directory
@@ -241,7 +240,7 @@ function gen_debian() {
 		SIZE=`stat -c%s $i`
 		echo " $MD5 $SIZE $i"
 	done >> $DSC
-	popd $OUTPUT
+	popd
 
 	popd
 }
