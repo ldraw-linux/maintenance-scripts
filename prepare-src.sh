@@ -230,7 +230,18 @@ function gen_debian() {
 	} > changelog
 
 	tar -czf $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz --transform='s%^\.%debian%' .
-	debian_generate_dsc . > $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc
+	
+	DSC=$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc
+	debian_generate_dsc . > $DSC
+	pushd $OUTPUT
+	echo "Files:" >> $DSC
+	for i in ${PKG}_${UPSTREAM_VERSION}.orig.tar.gz ${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz; do
+		MD5=`md5sum $i`
+		MD5=${MD5%% *}
+		SIZE=`stat -c%s $i`
+		echo " $MD5 $SIZE $i"
+	done >> $DSC
+	popd $OUTPUT
 
 	popd
 }
