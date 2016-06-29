@@ -20,6 +20,17 @@ function warn() {
 	echo "WARNING: $1" >&2
 }
 
+# ignore stdout of pushd/popd
+function pushd()
+{
+	builtin pushd "$@" > /dev/null
+}
+
+function popd()
+{
+	builtin popd "$@" > /dev/null
+}
+
 #
 # main
 #
@@ -150,9 +161,9 @@ function gen_suse() {
 
 	{	
 		# needs to be run in the git directory
-		pushd $ROOT
+		pushd $ROOT 
 		suse_generate_changes_file 
-		popd
+		popd 
 	} >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.changes
 
 	popd
@@ -172,9 +183,9 @@ function debian_generate_changes_file() {
 function debian_generate_dsc () {
 	GEN_DSC=$SCRIPTS/gen_dsc.sh
 	[[ -x $GEN_DSC ]] || die "Can't execute $GEN_DSC"
-	pushd $1 > /dev/null
+	pushd $1 
 	$GEN_DSC
-	popd > /dev/null
+	popd 
 }
 
 function gen_debian() {
@@ -186,10 +197,10 @@ function gen_debian() {
 	ls -1 |grep -v "^series$" > series
 	popd
 	{	
-		pushd $ROOT > /dev/null
+		pushd $ROOT
 		# needs to be run in the git directory
 		debian_generate_changes_file 
-		popd > /dev/null
+		popd
 	} > changelog
 
 	tar -czf $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz --transform='s%^\.%debian%' .
