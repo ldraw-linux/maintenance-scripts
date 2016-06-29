@@ -108,26 +108,12 @@ git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $
 #
 
 ################### suse #############
-# This function expects an annotated tag 'start' containing two lines in the messsage:
-#   Upstream version of the project at that time
-#   URL of upstream
-function suse_shorten_history() {
-	git cat-file -p start | {
-		while true ; do
-			read line
-			if [ -z "$line" ] ; then
-				break
-			fi
-		done
-		read version
-		read URL
-		git log -1 --pretty=format:"-------------------------------------------------------------------%n%ad - %ce%n%n- ${version}%n  ${URL}%n" start ;
-	}
-}
 
 function suse_generate_changes_file() {
-	git log --date-order --pretty=format:'%at;-------------------------------------------------------------------|n|%ad - %ce|n||n|- %s|n|  %h|n|' start..$PACKAGING | sort -nr -t \; -k 1 | sed 's/^[0-9]*;//;s/|n|/\n/g'
-	suse_shorten_history
+	git log --date-order --first-parent --pretty=format:\
+'%at;-------------------------------------------------------------------|n|'\
+'%ad - %ce|n||n|- %s|n|  %h|n|'\
+	start..$MASTER | sort -nr -t \; -k 1 | sed 's/^[0-9]*;//;s/|n|/\n/g'
 }
 
 
@@ -173,34 +159,14 @@ function gen_suse() {
 }
 
 ################### debian #############
-# This function expects an annotated tag 'start' containing two lines in the messsage:
-#   Upstream version of the project at that time
-#   URL of upstream
-function debian_shorten_history() {
-	git cat-file -p start | {
-		while true ; do
-			read line
-			if [ -z "$line" ] ; then
-				break
-			fi
-		done
-		read version
-		read URL
-		git log -1 --pretty=format:
-"$PKG ($version) unstable; urgency=low%n"\
-" * Initial packaging of version $version ($URL)%n"\
-" -- %cn <%ce>  %ad"\
-		start ;
-	}
-}
 
 function debian_generate_changes_file() {
-	git log --date-order --pretty=format:\
+	git log --date-order --first-parent --pretty=format:\
+"%at;"\
 "$PKG ($VERSION) unstable; urgency=low|n|"\
 " * %s (%h)|n|"\
 " -- %cn <%ce>  %ad"\
-	start..$PACKAGING | sort -nr -t \; -k 2 | sed 's/^[0-9]*;//;s/|n|/\n/g'
-	debian_shorten_history
+	start..$MASTER | sort -nr -t \; -k 1 | sed 's/^[0-9]*;//;s/|n|/\n/g'
 }
 
 function debian_generate_dsc () {
