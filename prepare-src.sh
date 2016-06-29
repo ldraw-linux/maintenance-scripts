@@ -87,6 +87,7 @@ fi
 VERSION=$TAG
 UPSTREAM_VERSION=${VERSION%.*}
 RELEASE_VERSION=${VERSION##*.}
+DEBIAN_VERSION=${UPSTREAM_VERSION}-${RELEASE_VERSION}
 
 echo "Using $VERSION as version string."	
 
@@ -174,19 +175,123 @@ function gen_suse() {
 function debian_generate_changes_file() {
 	git log --date-order --first-parent --pretty=format:\
 "%at;"\
-"$PKG ($VERSION) unstable; urgency=low|n|"\
-" * %s (%h)|n|"\
-" -- %cn <%ce>  %ad"\
+"$PKG ($DEBIAN_VERSION) unstable; urgency=low|n||n|"\
+"  * %s (%h)|n||n|"\
+" -- %cn <%ce>  %aD"\
 	start..$MASTER | sort -nr -t \; -k 1 | sed 's/^[0-9]*;//;s/|n|/\n/g'
 }
 
-function debian_generate_dsc () {
-	GEN_DSC=$SCRIPTS/gen_dsc.sh
-	[[ -x $GEN_DSC ]] || die "Can't execute $GEN_DSC"
-	pushd $1 
-	$GEN_DSC
-	popd 
+function field_var_name() {
+	local varname=${1//-/_}
+	echo ${varname^^}
 }
+
+function parse_control_file() {
+	PREFIX=FIELD
+	PKG_NUM=0
+	PKG_MAX=$PKG_NUM
+	mode="general"
+	ALL_FIELDS=""
+	IFS_ORIG="$IFS"
+	while read field value ; do
+		[ -z "$field" ] && continue
+		field=${field/:/}
+		fieldvar=$(field_var_name $field)
+		if [ "$mode" = "package" -a "$field" = "Description" ] ; then
+			IN_EOF=1
+			eval "${PREFIX}_${fieldvar}=\"\$value\""
+			echo "DEBUG: LINE=$value" >&2
+			while IFS= read -r line ; do
+				if [ "${line:0:1}" != " " ] ; then
+					IN_EOF=0
+					break
+				fi
+				echo "DEBUG: LINE=$line" >&2
+				eval "${PREFIX}_${fieldvar}=\"\${${PREFIX}_${fieldvar}}
+\${line}\""
+			done
+			ALL_FIELDS="${ALL_FIELDS} ${PREFIX}_${fieldvar}"
+			if [ "${IN_EOF}" = 1 ] ; then
+				break
+			else
+				read field value <<<"$line"
+				[ -z "$field" ] && continue
+				field=${field/:/}
+				fieldvar=$(field_var_name $field)
+			fi
+		fi
+		if [ "$field" = "Package" ] ; then
+			PKG_NUM=$(( PKG_NUM + 1 ))
+			PKG_MAX=$PKG_NUM
+			PREFIX="PACKAGE_${PKG_NUM}"
+			fieldvar="NAME"
+			mode="package"
+		fi
+		eval "${PREFIX}_${fieldvar}=\"${value}\""
+		ALL_FIELDS="${ALL_FIELDS} ${PREFIX}_${fieldvar}"
+	done < control
+	for f in $ALL_FIELDS ; do
+		eval "echo \"DEBUG: ${f}=\$$f\"" >&2
+	done
+}
+
+
+declare -a DSC_OUTPUT_FIELDS=(
+"Source"
+"Binary"
+"Maintainer"
+"Architecture"
+"Build-Depends"
+"Files"
+)
+
+function output_dsc() {
+	echo "Format: 3.0 (quilt)"
+	echo "Version: $DEBIAN_VERSION"
+	echo "Architecture: any all"
+
+	for field in "${DSC_OUTPUT_FIELDS[@]}" ; do
+		fieldvar=$(field_var_name $field)
+		eval "f=\${FIELD_${fieldvar}}"
+		[ -n "$f" ] && eval echo \"${field}: \${FIELD_${fieldvar}}\"
+	done
+
+	echo -n "Binary: "
+	for ((i=1; i<=$PKG_MAX; ++i)); do
+		eval "f=\${PACKAGE_${i}_NAME}"
+		echo -n $f
+		if [[ $i == $PKG_MAX ]]; then
+			echo ""
+		else
+			echo -n ", "
+		fi
+	done
+
+	echo "Package-List:"
+	for ((i=1; i<=$PKG_MAX; ++i)); do
+		eval "f=\${PACKAGE_${i}_NAME}"
+		echo " $f deb misc optional arch=all"
+	done
+
+
+	pushd $OUTPUT
+	echo "Files:" >> $DSC
+	for i in ${PKG}_${UPSTREAM_VERSION}.orig.tar.gz ${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz; do
+		MD5=`md5sum $i`
+		MD5=${MD5%% *}
+		SIZE=`stat -c%s $i`
+		echo " $MD5 $SIZE $i"
+	done >> $DSC
+	popd
+
+	
+}
+
+function debian_generate_dsc() {
+	parse_control_file
+	output_dsc
+}
+
 
 function gen_debian() {
 	SRC=$1
@@ -206,17 +311,8 @@ function gen_debian() {
 	tar -czf $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz --transform='s%^\.%debian%' .
 	
 	DSC=$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc
-	debian_generate_dsc . > $DSC
-	pushd $OUTPUT
-	echo "Files:" >> $DSC
-	for i in ${PKG}_${UPSTREAM_VERSION}.orig.tar.gz ${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz; do
-		MD5=`md5sum $i`
-		MD5=${MD5%% *}
-		SIZE=`stat -c%s $i`
-		echo " $MD5 $SIZE $i"
-	done >> $DSC
-	popd
 
+	debian_generate_dsc > $DSC
 	popd
 }
 pushd $SRCDIR
