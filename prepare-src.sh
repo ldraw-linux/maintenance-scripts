@@ -87,7 +87,6 @@ fi
 VERSION=$TAG
 UPSTREAM_VERSION=${VERSION%.*}
 RELEASE_VERSION=${VERSION##*.}
-DEBIAN_VERSION=${UPSTREAM_VERSION}-${RELEASE_VERSION}
 
 echo "Using $VERSION as version string."	
 
@@ -247,7 +246,7 @@ declare -a DSC_OUTPUT_FIELDS=(
 
 function output_dsc() {
 	echo "Format: 3.0 (quilt)"
-	echo "Version: $DEBIAN_VERSION"
+	echo "Version: $VERSION_DISTNAME"
 	echo "Architecture: any all"
 
 	for field in "${DSC_OUTPUT_FIELDS[@]}" ; do
@@ -276,7 +275,7 @@ function output_dsc() {
 
 	pushd $OUTPUT
 	echo "Files:" >> $DSC
-	for i in ${PKG}_${UPSTREAM_VERSION}.orig.tar.gz ${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz; do
+	for i in ${PKG}_${UPSTREAM_VERSION}.orig.tar.gz ${PKG}_${VERSION_DISTNAME}.debian.tar.gz; do
 		MD5=`md5sum $i`
 		MD5=${MD5%% *}
 		SIZE=`stat -c%s $i`
@@ -297,6 +296,9 @@ function gen_debian() {
 	SRC=$1
 	OUTPUT=$2
 	DISTNAME=$3
+	DISTNAME_ALPHANUM=${DISTNAME//[._-]/}
+	DEBIAN_VERSION=${UPSTREAM_VERSION}-${RELEASE_VERSION}
+	VERSION_DISTNAME=${DEBIAN_VERSION}${DISTNAME_ALPHANUM:++}${DISTNAME_ALPHANUM}
 	pushd $SRC
 	pushd patches
 	ls -1 |grep -v "^series$" > series
@@ -308,7 +310,7 @@ function gen_debian() {
 		popd
 	} > changelog
 
-	tar -czf $OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.debian.tar.gz --transform='s%^\.%debian%' .
+	tar -czf $OUTPUT/${PKG}_${VERSION_DISTNAME}.debian.tar.gz --transform='s%^\.%debian%' .
 	
 	DSC=$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc
 
