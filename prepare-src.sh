@@ -217,9 +217,7 @@ function gen_debian() {
 	DISTNAME=$3
 	pushd $SRC
 	pushd patches
-	S=`mktemp`
-	ls -1 > $S
-	mv $S series
+	ls -1 |grep -v "^series$" > series
 	popd
 	{	
 		pushd $ROOT > /dev/null
