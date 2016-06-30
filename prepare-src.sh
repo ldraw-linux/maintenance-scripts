@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 ROOT=`pwd`
 PKG=`basename "$ROOT"`
 UPSTREAM=upstream
@@ -23,12 +23,12 @@ function warn() {
 # ignore stdout of pushd/popd
 function pushd()
 {
-	builtin pushd "$@" >&2 || die "pushd failed: $@"
+	builtin pushd "$@" >/dev/null || die "pushd failed: $@"
 }
 
 function popd()
 {
-	builtin popd "$@" >&2 || die "popd failed: $@"
+	builtin popd "$@" >/dev/null || die "popd failed: $@"
 }
 
 #
@@ -146,8 +146,7 @@ function gen_rpm() {
 		[[ -e $OUTPUT/$f ]] || cp $i $OUTPUT
 	done
 
-	sed -e 's/__VERSION__/'$VERSION'/
-	        s/__UPSTREAM_VERSION__/'$UPSTREAM_VERSION'/
+	sed -e 's/__UPSTREAM_VERSION__/'$UPSTREAM_VERSION'/
 	        s/__RELEASE_VERSION__/'$RELEASE_VERSION'/
 		/__PATCHES_DECLARE__/ {
 			r spec.patch_declare
@@ -199,13 +198,11 @@ function parse_control_file() {
 		if [ "$mode" = "package" -a "$field" = "Description" ] ; then
 			IN_EOF=1
 			eval "${PREFIX}_${fieldvar}=\"\$value\""
-			echo "DEBUG: LINE=$value" >&2
 			while IFS= read -r line ; do
 				if [ "${line:0:1}" != " " ] ; then
 					IN_EOF=0
 					break
 				fi
-				echo "DEBUG: LINE=$line" >&2
 				eval "${PREFIX}_${fieldvar}=\"\${${PREFIX}_${fieldvar}}
 \${line}\""
 			done
@@ -229,9 +226,6 @@ function parse_control_file() {
 		eval "${PREFIX}_${fieldvar}=\"${value}\""
 		ALL_FIELDS="${ALL_FIELDS} ${PREFIX}_${fieldvar}"
 	done < control
-	for f in $ALL_FIELDS ; do
-		eval "echo \"DEBUG: ${f}=\$$f\"" >&2
-	done
 }
 
 
@@ -242,6 +236,7 @@ declare -a DSC_OUTPUT_FIELDS=(
 "Architecture"
 "Build-Depends"
 "Files"
+"Vcs-Git"
 )
 
 function output_dsc() {
