@@ -70,7 +70,7 @@ if git status --porcelain -- "$ROOT"|grep -q M; then
 fi
 
 # get the commit the user wants to make a package from
-# and that we're on a tagged commit
+# and verify that we're on a tagged commit
 
 HASH=`git log -1 --pretty="format:%H"`
 TAG=`git tag --points-at HEAD`
@@ -93,6 +93,7 @@ echo "Using $VERSION as version string."
 
 #
 # Create the directory of package sources
+# If OUTPUT_DIR is not set, it will be created under the sources directory
 #
 D=`mktemp -d`
 SRCDIR="$D/$PKG"
@@ -123,6 +124,11 @@ git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $
 ################### rpm #############
 
 function rpm_generate_changes_file() {
+	# TODO: we need to ensure proper ordering of the git log;
+	# this condenses each commit to a single line, sorts using sort,
+	# and then splits the lines again. This is probably wrong! FIXME!
+	# we also want to properly describe merge commits!
+
 	git log --date-order --first-parent --pretty=format:\
 '%at;-------------------------------------------------------------------|n|'\
 '%ad - %ce|n||n|- %s|n|  %h|n|'\
@@ -137,7 +143,7 @@ function gen_rpm() {
 
 	pushd $SRC
 
-	#generate spec.patch_declare and spec.patch_apply temporary files
+	# generate spec.patch_declare and spec.patch_apply temporary files
 	n=0
 	for i in patches/*; do
 		[[ -e $i ]] || continue
@@ -148,6 +154,7 @@ function gen_rpm() {
 		[[ -e "$OUTPUT/$f" ]] || cp $i "$OUTPUT"
 	done
 
+	# generate the spec file, filling in marked fields from the template
 	sed -e 's/__UPSTREAM_VERSION__/'$UPSTREAM_VERSION'/
 	        s/__RELEASE_VERSION__/'$RELEASE_VERSION'/
 		/__PATCHES_DECLARE__/ {
@@ -173,6 +180,11 @@ function gen_rpm() {
 ################### deb #############
 
 function deb_generate_changes_file() {
+	# TODO: we need to ensure proper ordering of the git log;
+	# this condenses each commit to a single line, sorts using sort,
+	# and then splits the lines again. This is probably wrong! FIXME!
+	# we also want to properly describe merge commits!
+
 	git log --date-order --first-parent --pretty=format:\
 "%at;"\
 "$PKG ($DEBIAN_VERSION) unstable; urgency=low|n||n|"\
@@ -181,11 +193,13 @@ function deb_generate_changes_file() {
 	start..$MASTER | sort -nr -t \; -k 1 | sed 's/^[0-9]*;//;s/|n|/\n/g'
 }
 
+# reimplement associative arrays to support bash < 4.0
 function field_var_name() {
 	local varname=${1//-/_}
 	echo ${varname^^}
 }
 
+# parses the control file and saves the information in bash variables
 function parse_control_file() {
 	PREFIX=FIELD
 	PKG_NUM=0
@@ -231,6 +245,8 @@ function parse_control_file() {
 }
 
 
+# fields we want to be put in the dsc, stored in bsah variables by the above
+# parse_... functions
 declare -a DSC_OUTPUT_FIELDS=(
 "Source"
 "Binary"
@@ -294,6 +310,9 @@ function gen_deb() {
 	SRC=$1
 	OUTPUT="$2"
 	DISTNAME=$3
+
+	# distribution-version specific files have the distribution version
+	# appended to the package version using +
 	DISTNAME_ALPHANUM=${DISTNAME//[._-]/}
 	DEBIAN_VERSION=${UPSTREAM_VERSION}-${RELEASE_VERSION}
 	VERSION_DISTNAME=${DEBIAN_VERSION}${DISTNAME_ALPHANUM:++}${DISTNAME_ALPHANUM}
@@ -322,15 +341,23 @@ function gen_deb() {
 }
 pushd $SRCDIR
 
+# the packaging branch of each package needs to have a directory for
+# each supported package format
 
 DISTRO_TEMPLATES="rpm deb"
 for template in $DISTRO_TEMPLATES ; do
+	# generic package source for this package format
 	cp -a $PATCHES_MASTER ${template}/patches
 	gen_$template $template "${OUTPUT_DIR}" ""
 	[[ -d series-distro/${template} ]] || continue
+
+	# distribution-version specific patches
 	for dist_full in series-distro/${template}/* ; do
 		[[ -e "$dist_full" ]] || continue
 		dist=${dist_full##*/}
+
+		# copy the generic package source generated above and apply
+		# the distribution-version specific patches
 		cp -a ${template} ${dist}
 		pushd ${dist}
 		while read patch; do
@@ -338,6 +365,7 @@ for template in $DISTRO_TEMPLATES ; do
 			patch -p1 < ../patches-distro/$patch
 		done <../series-distro/$template/${dist}
 		popd
+		#generate the distribution-version specific package source
 		gen_$template ${dist} "${OUTPUT_DIR}" ${dist}
 	done
 done
