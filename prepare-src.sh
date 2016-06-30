@@ -285,7 +285,8 @@ function output_dsc() {
 	echo "Package-List:"
 	for ((i=1; i<=$PKG_MAX; ++i)); do
 		eval "f=\${PACKAGE_${i}_NAME}"
-		echo " $f deb misc optional arch=all"
+		eval "a=\${PACKAGE_${i}_ARCHITECTURE}"
+		echo " $f deb misc optional arch=$a"
 	done
 
 
