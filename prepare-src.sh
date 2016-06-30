@@ -108,7 +108,7 @@ git archive --prefix=${PKG}-${UPSTREAM_VERSION}/ $UPSTREAM | gzip -n > $SRCDIR/o
 git format-patch -o $PATCHES_MASTER $UPSTREAM..$MASTER
 
 # copy distro-specific files 
-git archive $PACKAGING -- suse debian | tar -x -C $SRCDIR
+git archive $PACKAGING -- rpm deb | tar -x -C $SRCDIR
 
 # this may fail if the directories don't exist and that's OK
 git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $SRCDIR 
@@ -118,9 +118,9 @@ git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $
 # Generate packages
 #
 
-################### suse #############
+################### rpm #############
 
-function suse_generate_changes_file() {
+function rpm_generate_changes_file() {
 	git log --date-order --first-parent --pretty=format:\
 '%at;-------------------------------------------------------------------|n|'\
 '%ad - %ce|n||n|- %s|n|  %h|n|'\
@@ -128,7 +128,7 @@ function suse_generate_changes_file() {
 }
 
 
-function gen_suse() {
+function gen_rpm() {
 	SRC=$1
 	OUTPUT=$2
 	DISTNAME=$3
@@ -162,16 +162,16 @@ function gen_suse() {
 	{	
 		# needs to be run in the git directory
 		pushd $ROOT 
-		suse_generate_changes_file 
+		rpm_generate_changes_file 
 		popd 
 	} >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.changes
 
 	popd
 }
 
-################### debian #############
+################### deb #############
 
-function debian_generate_changes_file() {
+function deb_generate_changes_file() {
 	git log --date-order --first-parent --pretty=format:\
 "%at;"\
 "$PKG ($DEBIAN_VERSION) unstable; urgency=low|n||n|"\
@@ -286,13 +286,13 @@ function output_dsc() {
 	
 }
 
-function debian_generate_dsc() {
+function deb_generate_dsc() {
 	parse_control_file
 	output_dsc
 }
 
 
-function gen_debian() {
+function gen_deb() {
 	SRC=$1
 	OUTPUT=$2
 	DISTNAME=$3
@@ -311,7 +311,7 @@ function gen_debian() {
 	{	
 		pushd $ROOT
 		# needs to be run in the git directory
-		debian_generate_changes_file 
+		deb_generate_changes_file 
 		popd
 	} > changelog
 
@@ -319,13 +319,13 @@ function gen_debian() {
 	
 	DSC=$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc
 
-	debian_generate_dsc > $DSC
+	deb_generate_dsc > $DSC
 	popd
 }
 pushd $SRCDIR
 
 
-DISTRO_TEMPLATES="suse debian"
+DISTRO_TEMPLATES="rpm deb"
 for template in $DISTRO_TEMPLATES ; do
 	cp -a $PATCHES_MASTER ${template}/patches
 	gen_$template $template ${SRCDIR}/output ""
