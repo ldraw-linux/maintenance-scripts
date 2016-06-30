@@ -340,4 +340,4 @@ for template in $DISTRO_TEMPLATES ; do
 done
 popd #SRCDIR
 
-echo -e "Sources of the package are stored at\n $SRCDIR" >&2
+echo -e "Sources of the package are stored at\n $OUTPUT" >&2
