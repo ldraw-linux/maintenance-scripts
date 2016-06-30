@@ -240,9 +240,10 @@ declare -a DSC_OUTPUT_FIELDS=(
 )
 
 function output_dsc() {
-	echo "Version: $VERSION_DISTNAME"
-	cat source/format
+	echo "Format: $(< source/format)"
+
 	echo "Architecture: any all"
+	echo "Version: $VERSION_DISTNAME"
 
 	for field in "${DSC_OUTPUT_FIELDS[@]}" ; do
 		fieldvar=$(field_var_name $field)
@@ -298,7 +299,7 @@ function gen_deb() {
 	echo "9" > compat
 
 	mkdir -p source
-	echo "Format: 3.0 (quilt)" > source/format
+	echo "3.0 (quilt)" > source/format
 
 	pushd patches
 	ls -1 |grep -v "^series$" > series
