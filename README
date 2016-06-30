@@ -1,0 +1,86 @@
+Multi-distro maintenance scripts
+================================
+
+
+These scripts are useful for maintaining forks of upstream projects using git
+and building packages for multiple distributions.
+
+git tree layout
+---------------
+
+To maintain a package named <package>
+It expects a git tree located in a directory called <package>
+and this git layout:
+
+- an "upstream" branch
+  - tracks the upstream development
+
+- a "master" branch
+  - regularly merges the "upstream" branch
+  - adds patches on top of it
+
+- a "packaging" branch
+  - regularly merges the "master" branch
+  - adds packaging stuff
+    - a "deb" directory for debian-based distributions containing at least
+      these debian packaging files: 
+      	control  
+	copyright
+	rules
+    - an "rpm" directory for rpm-based distributions containing at least
+    	<package>.spec
+    - optionally two directories called "patches-distro" and  "series-distro"
+      to provide patches for specific distribution versions. All patches are
+      placed in the "patches-distro" directory. "series-distro" contains list of patches to apply
+      for specific distro versions. E.g.:
+      	"deb/Debian_7.0" or "rpm/openSUSE_13.1".
+      The patches under "patches-distro" may be of two kinds:
+      - modifying the distribution packaging files. E.g. to modify the debian control file, the patch 
+        would have this header:
+		--- a/control
+		+++ b/control
+      - adding patches into a "patches/" directory to be applied to the package source tree.
+        E.g. to modify the Makefile in the root directory of the package source, the patch would start like this:
+		--- /dev/null
+		+++ b/patches/axle.patch
+		@@ -0,0 +1,10 @@
+		+--- a/Makefile
+		++++ b/Makefile
+		...
+	
+
+- a "start" tag pointing to the commit where you first started maintaining the package
+  and provides a starting point for generating the changelogs
+
+generating package sources
+--------------------------
+
+- Checkout the "packaging" branch
+	git checkout packaging
+
+- Unless you're just testing things, make sure you have no uncommitted changes
+  and you have created a tag pointing to the topmost commit. The tag is annotated
+  with the desired version string for the packages.
+  	git commit ...
+	git tag 1.2.34.5
+  Uncommitted changes will not be present in the generated packages!
+  
+- Run the prepare-src.script
+
+	/path/to/the/scripts/prepare-src.sh [force]
+
+  This creates a temporary directory where it puts the package sources and prints the 
+  directory name on successful completion.
+  If it detects uncommitted changes or that you are not on a tagged commit, it refuses to
+  continue unless you use the "force" parameter
+
+- Alternatively, you can use the obs-submit.sh wrapper. This calls the above
+  script and submits the packages to the openSUSE Build Service.
+  You need to set your project name and package name in the .obs_config file. E.g.
+  	cat > .obs_config
+	OBS_PROJECT=home:user:myproject
+	OBS_PACKAGE=foopack
+
+  Then just run:
+	/path/to/the/scripts/obs-submit.sh [force]
+ 
