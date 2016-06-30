@@ -113,8 +113,10 @@ git format-patch -o $PATCHES_MASTER $UPSTREAM..$MASTER
 # copy distro-specific files 
 git archive $PACKAGING -- rpm deb | tar -x -C $SRCDIR
 
-# this may fail if the directories don't exist and that's OK
-git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $SRCDIR 
+# get distro-specific patches if needed
+if [ -d patches-distro -a -d series-distro ] ; then
+	git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $SRCDIR 
+fi
 
 
 #
