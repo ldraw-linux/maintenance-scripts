@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 SCRIPTS=`(cd ${BASH_SOURCE%/*}; pwd )`
 
@@ -13,9 +13,9 @@ COMMIT=`git log -1 --format="%h"`
 cd $D
 osc co $OBS_PROJECT/$OBS_PACKAGE
 cd $OBS_PROJECT/$OBS_PACKAGE
-osc rm *
+rm *
 cp $OUTPUT_DIR/* .
-osc add *
+osc addremove
 osc commit -m "git commit: $COMMIT"
 
 rm -rf $D
