@@ -97,12 +97,14 @@ echo "Using $VERSION as version string."
 D=`mktemp -d`
 SRCDIR="$D/$PKG"
 PATCHES_MASTER=$D/patches-master
+OUTPUT_DIR=${OUTPUT_DIR:-${SRCDIR}/output}
+
 mkdir "$SRCDIR" || die "Cannot create a temporary directory $SRCDIR"
 mkdir "$PATCHES_MASTER" || die "Cannot create a temporary directory $PATCHES_MASTER"
-mkdir "$SRCDIR/output"
+mkdir -p "$OUTPUT_DIR"
 
 # create upstream tarball
-git archive --prefix=${PKG}-${UPSTREAM_VERSION}/ $UPSTREAM | gzip -n > $SRCDIR/output/${PKG}_${UPSTREAM_VERSION}.orig.tar.gz
+git archive --prefix=${PKG}-${UPSTREAM_VERSION}/ $UPSTREAM | gzip -n > "${OUTPUT_DIR}/${PKG}_${UPSTREAM_VERSION}.orig.tar.gz"
 
 # create patch series between upstream and master
 git format-patch -o $PATCHES_MASTER $UPSTREAM..$MASTER
@@ -130,7 +132,7 @@ function rpm_generate_changes_file() {
 
 function gen_rpm() {
 	SRC=$1
-	OUTPUT=$2
+	OUTPUT="$2"
 	DISTNAME=$3
 
 	pushd $SRC
@@ -143,7 +145,7 @@ function gen_rpm() {
 		n=$((n+1))
 		echo "Patch$n: $f" >> spec.patch_declare
 		echo "%patch$n -p1" >> spec.patch_apply
-		[[ -e $OUTPUT/$f ]] || cp $i $OUTPUT
+		[[ -e "$OUTPUT/$f" ]] || cp $i "$OUTPUT"
 	done
 
 	sed -e 's/__UPSTREAM_VERSION__/'$UPSTREAM_VERSION'/
@@ -155,7 +157,7 @@ function gen_rpm() {
 		/__PATCHES_APPLY__/ {
 			r spec.patch_apply
 			d
-			}' $PKG.spec >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.spec
+			}' $PKG.spec >"$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.spec"
 	rm spec.patch_declare spec.patch_apply
 
 	{	
@@ -163,7 +165,7 @@ function gen_rpm() {
 		pushd $ROOT 
 		rpm_generate_changes_file 
 		popd 
-	} >$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.changes
+	} >"$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.changes"
 
 	popd
 }
@@ -269,7 +271,7 @@ function output_dsc() {
 	done
 
 
-	pushd $OUTPUT
+	pushd "$OUTPUT"
 	echo "Files:" >> $DSC
 	for i in ${PKG}_${UPSTREAM_VERSION}.orig.tar.gz ${PKG}_${VERSION_DISTNAME}.debian.tar.gz; do
 		MD5=`md5sum $i`
@@ -290,7 +292,7 @@ function deb_generate_dsc() {
 
 function gen_deb() {
 	SRC=$1
-	OUTPUT=$2
+	OUTPUT="$2"
 	DISTNAME=$3
 	DISTNAME_ALPHANUM=${DISTNAME//[._-]/}
 	DEBIAN_VERSION=${UPSTREAM_VERSION}-${RELEASE_VERSION}
@@ -311,9 +313,9 @@ function gen_deb() {
 		popd
 	} > changelog
 
-	tar -czf $OUTPUT/${PKG}_${VERSION_DISTNAME}.debian.tar.gz --transform='s%^\.%debian%' .
+	tar -czf "$OUTPUT/${PKG}_${VERSION_DISTNAME}.debian.tar.gz" --transform='s%^\.%debian%' .
 	
-	DSC=$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc
+	DSC="$OUTPUT/${PKG}${DISTNAME:+-}${DISTNAME}.dsc"
 
 	deb_generate_dsc > $DSC
 	popd
@@ -324,7 +326,7 @@ pushd $SRCDIR
 DISTRO_TEMPLATES="rpm deb"
 for template in $DISTRO_TEMPLATES ; do
 	cp -a $PATCHES_MASTER ${template}/patches
-	gen_$template $template ${SRCDIR}/output ""
+	gen_$template $template "${OUTPUT_DIR}" ""
 	[[ -d series-distro/${template} ]] || continue
 	for dist_full in series-distro/${template}/* ; do
 		[[ -e "$dist_full" ]] || continue
@@ -336,9 +338,9 @@ for template in $DISTRO_TEMPLATES ; do
 			patch -p1 < ../patches-distro/$patch
 		done <../series-distro/$template/${dist}
 		popd
-		gen_$template ${dist} ${SRCDIR}/output ${dist}
+		gen_$template ${dist} "${OUTPUT_DIR}" ${dist}
 	done
 done
 popd #SRCDIR
 
-echo -e "Sources of the package are stored at\n $OUTPUT" >&2
+echo -e "Sources of the package are stored at\n $OUTPUT_DIR" >&2
