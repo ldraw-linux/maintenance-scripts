@@ -245,8 +245,8 @@ declare -a DSC_OUTPUT_FIELDS=(
 )
 
 function output_dsc() {
-	echo "Format: 3.0 (quilt)"
 	echo "Version: $VERSION_DISTNAME"
+	cat source/format
 	echo "Architecture: any all"
 
 	for field in "${DSC_OUTPUT_FIELDS[@]}" ; do
@@ -300,6 +300,11 @@ function gen_debian() {
 	DEBIAN_VERSION=${UPSTREAM_VERSION}-${RELEASE_VERSION}
 	VERSION_DISTNAME=${DEBIAN_VERSION}${DISTNAME_ALPHANUM:++}${DISTNAME_ALPHANUM}
 	pushd $SRC
+	echo "9" > compat
+
+	mkdir -p source
+	echo "Format: 3.0 (quilt)" > source/format
+
 	pushd patches
 	ls -1 |grep -v "^series$" > series
 	popd
