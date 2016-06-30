@@ -113,8 +113,10 @@ git format-patch -o $PATCHES_MASTER $UPSTREAM..$MASTER
 # copy distro-specific files 
 git archive $PACKAGING -- rpm deb | tar -x -C $SRCDIR
 
-# this may fail if the directories don't exist and that's OK
-git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $SRCDIR 
+# get distro-specific patches if needed
+if [ -d patches-distro -a -d series-distro ] ; then
+	git archive $PACKAGING -- patches-distro series-distro 2>/dev/null | tar -x -C $SRCDIR 
+fi
 
 
 #
@@ -283,7 +285,8 @@ function output_dsc() {
 	echo "Package-List:"
 	for ((i=1; i<=$PKG_MAX; ++i)); do
 		eval "f=\${PACKAGE_${i}_NAME}"
-		echo " $f deb misc optional arch=all"
+		eval "a=\${PACKAGE_${i}_ARCHITECTURE}"
+		echo " $f deb misc optional arch=$a"
 	done
 
 
