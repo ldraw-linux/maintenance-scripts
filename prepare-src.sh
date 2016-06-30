@@ -23,12 +23,12 @@ function warn() {
 # ignore stdout of pushd/popd
 function pushd()
 {
-	builtin pushd "$@" > /dev/null
+	builtin pushd "$@" >&2 || die "pushd failed: $@"
 }
 
 function popd()
 {
-	builtin popd "$@" > /dev/null
+	builtin popd "$@" >&2 || die "popd failed: $@"
 }
 
 #
