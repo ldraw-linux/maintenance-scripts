@@ -15,17 +15,17 @@ mkdir $D/prep
 export OUTPUT_DIR=$D/prep
 
 # prepare the sources
-$SCRIPTS/prepare-src.sh "$@" || exit
+$SCRIPTS/prepare-src.sh "$@" || exit 1
 
-. .obs_config
+. .obs_config || exit 1
 COMMIT=`git log -1 --format="%h"`
 
 # check out the OBS package, COMPLETELY REPLACE it with
 # the newly generated sources and resubmit
 
 cd $D
-osc co $OBS_PROJECT/$OBS_PACKAGE
-cd $OBS_PROJECT/$OBS_PACKAGE
+osc co $OBS_PROJECT/$OBS_PACKAGE || exit 1
+cd $OBS_PROJECT/$OBS_PACKAGE || exit 1
 rm *
 cp $OUTPUT_DIR/* .
 osc addremove
