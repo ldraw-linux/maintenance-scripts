@@ -108,7 +108,8 @@ mkdir -p "$OUTPUT_DIR"
 git archive --prefix=${PKG}-${UPSTREAM_VERSION}/ $UPSTREAM | gzip -n > "${OUTPUT_DIR}/${PKG}_${UPSTREAM_VERSION}.orig.tar.gz"
 
 # create patch series between upstream and master
-git format-patch -o $PATCHES_MASTER $UPSTREAM..$MASTER
+#git format-patch -o $PATCHES_MASTER $UPSTREAM..$MASTER
+git diff $UPSTREAM..$MASTER >$PATCHES_MASTER/0000-upstream-master.patch
 
 # copy distro-specific files 
 git archive $PACKAGING -- rpm deb | tar -x -C $SRCDIR
